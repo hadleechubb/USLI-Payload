@@ -10,8 +10,8 @@ uint16_t BNO055_SAMPLERATE_DELAY_MS = 2.5;
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 word count = 0;
-sensors_event_t accl[40000];
-sensors_event_t gyro[40000];
+float accl[40000][4];
+float gyro[40000][4];
 
 void setup() {
   Serial.begin(115200);
@@ -28,8 +28,12 @@ void setup() {
 }
 
 void loop() {
-  sensors_event_t orientationData , angVelocityData , linearAccelData, magnetometerData, accelerometerData, gravityData;
-  bno.getEvent(&gyro[count], Adafruit_BNO055::VECTOR_GYROSCOPE);
-  bno.getEvent(&accl[count], Adafruit_BNO055::VECTOR_LINEARACCEL);
+  sensors_event_t gyrodata,accldata;
+  bno.getEvent(&gyrodata, Adafruit_BNO055::VECTOR_GYROSCOPE);
+  bno.getEvent(&accldata, Adafruit_BNO055::VECTOR_LINEARACCEL);
+  for (int i = 0; i < 5; i++) {
+  gyro[count][1] = gyrodata.data[1];
+//  accl[count][i] = accldata.data[i];
+  }
   count++;
 }
