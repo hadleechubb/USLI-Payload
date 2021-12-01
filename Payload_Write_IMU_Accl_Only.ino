@@ -68,8 +68,11 @@ void loop() {
 
   // Write data to files
   IMUAData = SD.open("IMU_A.csv", FILE_WRITE);
+  IMUADATA.setCursor(0,0);
   IMUAData.println(IMU_acclArray[count][0]);
+  IMUADATA.setCursor(1,0);
   IMUAData.println(IMU_acclArray[count][1]);
+  IMUADATA.setCursor(2,0);
   IMUAData.println(IMU_acclArray[count][2]);
   IMUAData.close();
   
