@@ -13,9 +13,6 @@
 //uint16_t BNO055_SAMPLERATE_DELAY_MS = .05;
 Adafruit_BNO055 bno = Adafruit_BNO055(01, 0x28);
 
-//SD Card Module Setup
-const int chipSelect = 10;
-
 //Declare files for data from each sensor
 File IMUAData; // int, 2 bytes //2000 Hz
 
@@ -29,17 +26,22 @@ void setup() {
   Serial.println("Payload_Write Test"); 
   Serial.println("");
 
+  // Begin SD
+  SD.begin(10);
+  IMUAData = SD.open("IMU_A.csv",FILE_WRITE);
+  IMUAData.println("End of launch.");
+  IMUAData.close();
+
   // Display message if IMU not detected
   if (!bno.begin())
   {
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+      IMUAData = SD.open("IMU_A.csv",FILE_WRITE);
+    IMUAData.println("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    IMUAData.close();
+    while(1);
   }
-  // Begin SD
-  SD.begin();
-  IMUAData = SD.open("IMU_A.csv",FILE_WRITE);
-  IMUAData.println("End of launch.");
-  IMUAData.close();
 //  Adafruit_BNO055::adafruit_bno055_opmode_t mode = Adafruit_BNO055::OPERATION_MODE_NDOF_FMC_OFF;
 //  bno.setMode(mode);
 }
