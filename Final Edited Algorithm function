@@ -1,0 +1,118 @@
+#include <BasicLinearAlgebra.h>
+using namespace BLA;
+
+//final loc function that takes the input values and converts them into the final grid cell location
+
+int finalLoc(String fileName, float frequency, float xVel0, float yVel0, float zVel0, float xDist0, float yDist0, float zDist0, float xThe0, float yThe0, float zThe0, float xOff, float yOff) //File on the SD card. It should have the x, y, and z accelerations in the 1st column and the x, y, z angular velocities in the 2nd column. Include frequency in Hz
+{
+
+    // ARRAY INITIALIZATIONS
+    BLA::Matrix<4800> num; 
+    //Insert loop to pull data from the SD card and save it into the array called num
+
+    BLA::Matrix<800> xAcc;  //Initializing acceleration arrays
+    BLA::Matrix<800> yAcc;
+    BLA::Matrix<800> zAcc;
+    BLA::Matrix<800> xAcca; //Initializing absolute acceleration arrays
+    BLA::Matrix<800> yAcca;
+    BLA::Matrix<800> zAcca;
+    BLA::Matrix<800> xOme;
+    BLA::Matrix<800> yOme;
+    BLA::Matrix<800> zOme;
+    float curtime[800]; 
+
+    BLA::Matrix<800> xVel; //Initializing velocity arrays
+    BLA::Matrix<800> yVel;
+    BLA::Matrix<800> zVel;
+    xVel(0) = xVel0;
+    yVel(0) = yVel0;
+    zVel(0) = zVel0;
+
+    BLA::Matrix<800> xDist; //Initializing position arrays
+    BLA::Matrix<800> yDist;
+    BLA::Matrix<800> zDist;
+    xDist(0) = xDist0;
+    yDist(0) = yDist0;
+    zDist(0) = zDist0;   
+
+    BLA::Matrix<800> xThe; //Initializing angle arrays
+    BLA::Matrix<800> yThe;
+    BLA::Matrix<800> zThe;
+    xThe(0) = xThe0;
+    yThe(0) = yThe0;
+    zThe(0) = zThe0; 
+
+    int t = 1/frequency;  //Finds time step process
+    
+    // confusion?     
+    int counter = 0;
+    for(int i = 0; i < (sizeof(num(1))); i = i + 6){  
+      xAcc(i) = num(i);  
+      yAcc(i) = num(i+1);  
+      zAcc(i) = num(i+2);  
+      xOme(i) = num(i+3);  
+      yOme(i) = num(i+4);  
+      zOme(i) = num(i+5);
+      
+      if(counter == 0){
+        curtime[counter] = 0;
+      }
+      else{
+        curtime[counter] = curtime[counter-1] + t;
+      }
+      counter++;
+    }  
+
+    for(int i = 1; i < (sizeof(xOme)-2); i++){ //Calculates angle for absolute acceleration
+        xThe(i+1) = xThe(i) + 0.5*t*(xOme(i) + xOme(i+1));
+        yThe(i+1) = yThe(i) + 0.5*t*(yOme(i) + yOme(i+1));
+        zThe(i+1) = zThe(i) + 0.5*t*(zOme(i) + zOme(i+1));
+    }   
+
+    for(int i = 1; i < (sizeof(xAcc)-1); i++){ //Calculates absolute acceleration at each time point
+        BLA::Matrix<3,3> acca1 = { cos(zThe(i)*PI/180), sin(zThe(i)*PI/180), 0, -sin(zThe(i)*PI/180), cos(zThe(i)*PI/180), 0, 0, 0, 1};
+        BLA::Matrix<3,3> acca2 = {cos(yThe(i)*PI/180), 0, -sin(yThe(i))*PI/180, 0, 1, 0, sin(yThe(i)*PI/180), 0, cos(yThe(i)*PI/180)};
+        BLA::Matrix<3,3> acca3 = {1, 0, 0, 0, cos(xThe(i)*PI/180), sin(xThe(i)*PI/180), 0, -sin(xThe(i)*PI/180), cos(xThe(i)*PI/180)};
+        BLA::Matrix<3,3> acc = {xAcc(i), yAcc(i), zAcc(i)};
+
+        BLA::Matrix<3,3> acca = acca1*acca2*acca3*acc;        
+
+        //acca2 = [cosd(yThe) 0 -sind(yThe); 0 1 0; sind(yThe) 0 cosd(yThe)]*acca1; //Tracks second rotation with y rotation
+        //acca3 = [1 0 0; 0 cosd(xThe) sind(xThe); 0 -sind(xThe) cosd(xThe)]*acca2; //Tracks final rotation with x rotation
+        xAcca(i) = acca(1);
+        yAcca(i) = acca(2);
+        zAcca(i) = acca(3);
+    }  
+
+    for(int i = 1; i < (sizeof(xAcca)-2); i++){ //Calculates velocity at each time point
+        xVel(i+1) = xVel(i) + 0.5*t*(xAcca(i) + xAcca(i+1));
+        yVel(i+1) = yVel(i) + 0.5*t*(yAcca(i) + yAcca(i+1));
+        zVel(i+1) = zVel(i) + 0.5*t*(zAcca(i) + zAcca(i+1));
+    }
+
+    for(int i = 1; i < (sizeof(xVel)-2); i++){ //alculates distance, angle at each time point
+        xDist(i+1) = xDist(i) + 0.5*t*(xVel(i) + xVel(i+1));
+        yDist(i+1) = yDist(i) + 0.5*t*(yVel(i) + yVel(i+1));
+        zDist(i+1) = zDist(i) + 0.5*t*(zVel(i) + zVel(i+1));
+    }
+
+    float time = t*(sizeof(xDist)); //total time of flight
+    float apogee = 0;
+    for(int i = 0; i < sizeof(zDist) - 1; i++){
+      if(apogee < zDist(i)){
+        apogee = zDist(i);
+      }
+    }
+
+    BLA::Matrix<3> finCoords = {xDist(sizeof(xDist)-1), yDist(sizeof(yDist)-1), zDist(sizeof(zDist)-1)}; //Final location -- x, y, z coordinate
+    //xOff = -250; //x and y offset of launchpad from gridded image origin. Enter the x and y components of the distance offset.
+    //yOff = 250;
+
+    int xLoc = floor(((finCoords(1))+xOff)/250); //Finds the upper right-hand node of the cell that contains the location of the rocket
+    int yLoc = ceil((finCoords(1)+yOff)/250);
+
+    int cellID = 211 + xLoc - 20*yLoc; //Traces from origin to determine the cell number. Can be calculated.
+    return cellID;
+}
+
+  
