@@ -2,7 +2,8 @@
 #include "SdFat.h"
 #include "sdios.h"
 
-#define SPI_SPEED SD_SCK_MHZ(50)12
+#define SPI_SPEED SD_SCK_MHZ(50)
+#define RED_LED 5
 
 // IMU Libraries:
 #include <Adafruit_Sensor.h>
@@ -31,10 +32,16 @@ void setup()
   myFile.open("FullScale.csv", O_RDWR | O_CREAT | O_AT_END);
   myFile.println("Acceleration/Gyroscope");
   myFile.close();
+  
+  // set up LED
+  pinMode(RED_LED,OUTPUT);
+  digitalWrite(RED_LED, LOW);
+  
   detectError = bno.begin();
   delay(100);
   while(detectError == 0)
   {
+    digitalWrite(RED_LED,LOW);
     detectError = bno.begin();
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("No BNO055 detected");
@@ -43,6 +50,7 @@ void setup()
     myFile.close();
     delay(100);
   }
+  digitalWrite(RED_LED,HIGH);
 }
 
 void loop()
