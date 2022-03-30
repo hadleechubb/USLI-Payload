@@ -144,3 +144,4 @@ void printEvent(sensors_event_t* event) {
   Serial.print(" |\tz= ");
   Serial.println(z);
 }
+
