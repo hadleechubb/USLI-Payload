@@ -5,6 +5,7 @@ char Mymessage[5] = "Hello"; //String data
      Serial.begin(115200);
    }
 
+
   void loop() {    
     Serial.write(Mymessage,5); //Write the serial data
     delay(1000);   
