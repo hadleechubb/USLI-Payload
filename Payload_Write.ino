@@ -29,6 +29,7 @@ File AltData; // unsigned int 8, 2 bytes //100 Hz
 
 
 //IMU Sample Period
+
 uint16_t BNO055_SAMPLERATE_DELAY_MS = .05;
 
 // declare IMU in library
