@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <SD.h>
 
+
 // Declare all Files
 File IMUAcclData; // int, 2 bytes //2000 Hz
 File IMUGyroData; // int, 2 bytes //2000 Hz
