@@ -71,6 +71,7 @@ function [time, apogee, location] = absTransform(fileName, frequency, xVel0, yVe
         zThe(i+1) = zThe(i) + 0.5*t*(zOme(i) + zOme(i+1));
     end
     
+    
     for i = 1:1:(length(xAcc)) %Calculates absolute acceleration at each time point
         acca = [cosd(zThe(i)) sind(zThe(i)) 0; -sind(zThe(i)) cosd(zThe(i)) 0; 0 0 1]*[cosd(yThe(i)) 0 -sind(yThe(i)); 0 1 0; sind(yThe(i)) 0 cosd(yThe(i))]*[1 0 0; 0 cosd(xThe(i)) sind(xThe(i)); 0 -sind(xThe(i)) cosd(xThe(i))]*[xAcc(i) yAcc(i) zAcc(i)]'; %Tracks all rotations
         %acca2 = [cosd(yThe) 0 -sind(yThe); 0 1 0; sind(yThe) 0 cosd(yThe)]*acca1; %Tracks second rotation with y rotation
