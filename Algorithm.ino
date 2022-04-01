@@ -8,7 +8,6 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-#include <BasicLinearAlgebra.h>
 using namespace BLA;
 
 Adafruit_BNO055 bno = Adafruit_BNO055(01, 0x28);
@@ -24,8 +23,6 @@ bool landed;
 int loops = 338;
 char line[10];
 bool transmit = false;
-//BLA::Matrix<6,1000> CalcData;
-//int CalcData[1000][6];
 int timestamptracker = 0;
 int TimeStamps[1000]; // check if needs to be higher
 float frequency;
@@ -147,7 +144,7 @@ void loop()
           yAcc[i] = atoi(line);
           // Accl Z
           myFile.fgets(line, sizeof(line));
-          zAcc[i] = atoi(line);
+          zAcc[i] = -atoi(line);
           // Gyro X
           myFile.fgets(line, sizeof(line));
           xOme[i] = atoi(line);
@@ -205,20 +202,10 @@ int finalLoc(float frequency, float xVel0, float yVel0, float zVel0, float xDist
   
   for(int i = 1; i < (sizeof(xAcc)-1); i++)
   { //Calculates absolute acceleration at each time point
-    acca1 = { cos(zThe[i]*PI/180), sin(zThe[i]*PI/180), 0, -sin(zThe[i]*PI/180), cos(zThe[i]*PI/180), 0, 0, 0, 1};
-    acca2 = {cos(yThe[i]*PI/180), 0, -sin(yThe[i]*PI/180), 0, 1, 0, sin(yThe[i]*PI/180), 0, cos(yThe[i]*PI/180)};
-    acca3 = {1, 0, 0, 0, cos(xThe[i]*PI/180), sin(xThe[i]*PI/180), 0, -sin(xThe[i]*PI/180), cos(xThe[i]*PI/180)};
-    acc = {xAcc[i], yAcc[i], zAcc[i]};
-
-    // I think this is supposed to be dot product
-    acca = acca1*acca2*acca3*acc;
-
-    //acca2 = [cosd[yThe] 0 -sind[yThe]; 0 1 0; sind[yThe] 0 cosd[yThe]]*acca1; //Tracks second rotation with y rotation
-    //acca3 = [1 0 0; 0 cosd[xThe] sind[xThe]; 0 -sind[xThe] cosd[xThe]]*acca2; //Tracks final rotation with x rotation
-    //pretty sure this could be done more efficiently
-    xAcca[i] = acca[1];
-    yAcca[i] = acca[2];
-    zAcca[i] = acca[3]+9.81;
+    xAcca[i] = cos(yThe[i]*PI/180)*cos(zThe[i]*PI/180)*xAcc[i] + cos(yThe[i]*PI/180)*sin(zThe[i]*PI/180)*yAcc[i] + (-sin(yThe[i]*PI/180)*zAcc[i]);
+    yAcca[i] = ((-cos(xThe[i]*PI/180))*sin(zThe[i]*PI/180)+sin(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*cos(zThe[i]*PI/180))*xAcc[i] + (cos(xThe[i]*PI/180)*cos(zThe[i]*PI/180)+sin(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*sin(zThe[i]*PI/180))*yAcc[i] + sin(xThe[i]*PI/180)*cos(yThe[i]*PI/180)*zAcc[i];
+    zAcca[i] = (sin(xThe[i]*PI/180)*sin(zThe[i]*PI/180)+cos(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*cos(zThe[i]*PI/180))*xAcc[i] + ((-sin(xThe[i]*PI/180))*sin(zThe[i]*PI/180)+cos(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*sin(zThe[i]*PI/180))*yAcc[i] + cos(xThe[i]*PI/180)*cos(yThe[i]*PI/180)*zAcc[i];
+    zAcca[i] = zAcca[i] + 9.81;
   }  
   
   for(int i = 1; i < (sizeof(xAcca)-2); i++)
@@ -244,9 +231,9 @@ int finalLoc(float frequency, float xVel0, float yVel0, float zVel0, float xDist
     }
   }
   
-  finCoords[0] = xDist[sizeof(xDist)-1];
-  finCoords[1] = yDist[sizeof(yDist)-1];
-  finCoords[2] = zDist[sizeof(zDist)-1]; //Final location -- x, y, z coordinate
+  finCoords[0] = (xDist[sizeof(xDist)-1])*3.28084;
+  finCoords[1] = (yDist[sizeof(yDist)-1])*3.28084;
+  finCoords[2] = (zDist[sizeof(zDist)-1])*3.28084;
   //xOff = -250; //x and y offset of launchpad from gridded image origin. Enter the x and y components of the distance offset.
   //yOff = 250;
   
@@ -257,4 +244,3 @@ int finalLoc(float frequency, float xVel0, float yVel0, float zVel0, float xDist
   Serial.println(cellID);
   return cellID;
 }
-
