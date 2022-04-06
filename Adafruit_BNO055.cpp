@@ -45,10 +45,10 @@
  */
 Adafruit_BNO055::Adafruit_BNO055(int32_t sensorID, uint8_t address,
                                  TwoWire *theWire) {
-// BNO055 clock stretches for 500us or more!
-#ifdef ESP8266
-  theWire->setClockStretchLimit(1000); // Allow for 1000us of clock stretching
-#endif
+  // BNO055 clock stretches for 500us or more!
+  #ifdef ESP8266
+    theWire->setClockStretchLimit(1000); // Allow for 1000us of clock stretching
+  #endif
 
   _sensorID = sensorID;
   i2c_dev = new Adafruit_I2CDevice(address, theWire);
@@ -106,6 +106,7 @@ bool Adafruit_BNO055::begin(adafruit_bno055_opmode_t mode) {
   delay(10);
 
   write8(BNO055_PAGE_ID_ADDR, 0x00);
+  delay(30);
 
   /* Set the output units */
   /*
@@ -125,33 +126,52 @@ bool Adafruit_BNO055::begin(adafruit_bno055_opmode_t mode) {
   delay(10);
   */
 
-  write8(BNO055_SYS_TRIGGER_ADDR, 0x0);
-  delay(10);
+  write8(BNO055_SYS_TRIGGER_ADDR, 0x20);
+  delay(30);
 
   // Stuff I added //
 
   write8(BNO055_PAGE_ID_ADDR, 0x01); // change to page 1
-  delay(30);  // delay to allow register to change
+  delay(50);  // delay to allow register to change
 
-  uint8_t pageid = read8(BNO055_PAGE_ID_ADDR);   // check if register changed
-  if (pageid != 0x01) {
-    return false; // if register did not change, throw an error
-  }
+  // uint8_t pageid = read8(BNO055_PAGE_ID_ADDR);   // check if register changed
+  // if (pageid != 0x01) {
+  //   return false; // if register did not change, throw an error
+  // }
 
-  write8(BNO055_ACCEL_DATA_X_LSB_ADDR,0x1C);  //  write to acc_config register (defined as different name in header file)
+  write8(BNO055_ACCEL_DATA_X_LSB_ADDR,0x1F);  //  write to acc_config register (defined as different name in header file)
   delay(50); // delay to allow register to change
 
-  uint8_t accconfig = read8(BNO055_ACCEL_DATA_X_LSB_ADDR); // read register just written
-  if (accconfig != 0x1C) {
-    return false; // if register did not change, throw error
-  }
+  // uint8_t accconfig = read8(BNO055_ACCEL_DATA_X_LSB_ADDR); // read register just written
+  // if (accconfig != 0x1C) {
+  //   return false; // if register did not change, throw error
+  // }
 
-  //write8(BNO055_ACCEL_DATA_Y_LSB_ADDR,0x00);
-  //delay(30);
-  uint8_t gyroconfig = read8(BNO055_ACCEL_DATA_Y_LSB_ADDR); // read register just written
-    if (gyroconfig != 0x38) {
-      return false; // if register did not change, throw error
-    }
+  write8(BNO055_ACCEL_DATA_Y_LSB_ADDR,0x00); // write to gry_config_0 register
+  delay(30);  // delay to allow change
+
+  // uint8_t gyroconfig = read8(BNO055_ACCEL_DATA_Y_LSB_ADDR); // read register just written
+  //   if (gyroconfig != 0x00) {
+  //     return false; // if register did not change, throw error
+  //   }
+
+  write8(BNO055_PAGE_ID_ADDR, 0x01);  // switch to page 1
+  delay(30);
+
+  write8(BNO055_MAG_DATA_X_MSB_ADDR,0x20); //INT_MSK
+  delay(30);                              // set so int pin changes on HG
+
+  write8(BNO055_MAG_DATA_Y_LSB_ADDR,0x20); //INT_EN
+  delay(30);                              // enables HG interrupt
+
+  write8(BNO055_MAG_DATA_Z_LSB_ADDR,0xE0); //ACC_INT_SETTINGS
+  delay(30);                               // set to fire interrupt for x,y or z axis (could be changed to just z)
+
+  write8(BNO055_MAG_DATA_Z_MSB_ADDR, 0x00); //ACC_HG_DURATION
+  delay(30);                                // set for 2 ms
+
+  write8(BNO055_GYRO_DATA_X_LSB_ADDR, 0x01); //ACC_HG_THRES
+  delay(30);                                // set for ~0.6 m/s^2
 
   write8(BNO055_PAGE_ID_ADDR,0x00); // change back to page 0
   delay(30); // delay to allow register to change
@@ -424,42 +444,42 @@ imu::Vector<3> Adafruit_BNO055::getVector(adafruit_vector_type_t vector_type) {
    * and assign the value to the Vector type
    */
   switch (vector_type) {
-  case VECTOR_MAGNETOMETER:
-    /* 1uT = 16 LSB */
-    xyz[0] = ((double)x) / 16.0;
-    xyz[1] = ((double)y) / 16.0;
-    xyz[2] = ((double)z) / 16.0;
-    break;
+  // case VECTOR_MAGNETOMETER:
+  //   /* 1uT = 16 LSB */
+  //   xyz[0] = ((double)x) / 16.0;
+  //   xyz[1] = ((double)y) / 16.0;
+  //   xyz[2] = ((double)z) / 16.0;
+  //   break;
   case VECTOR_GYROSCOPE:
     /* 1dps = 16 LSB */
     xyz[0] = ((double)x) / 16.0;
     xyz[1] = ((double)y) / 16.0;
     xyz[2] = ((double)z) / 16.0;
     break;
-  case VECTOR_EULER:
-    /* 1 degree = 16 LSB */
-    xyz[0] = ((double)x) / 16.0;
-    xyz[1] = ((double)y) / 16.0;
-    xyz[2] = ((double)z) / 16.0;
-    break;
+  // case VECTOR_EULER:
+  //   /* 1 degree = 16 LSB */
+  //   xyz[0] = ((double)x) / 16.0;
+  //   xyz[1] = ((double)y) / 16.0;
+  //   xyz[2] = ((double)z) / 16.0;
+  //   break;
   case VECTOR_ACCELEROMETER:
     /* 1m/s^2 = 100 LSB */
     xyz[0] = ((double)x) / 100.0;
     xyz[1] = ((double)y) / 100.0;
     xyz[2] = ((double)z) / 100.0;
     break;
-  case VECTOR_LINEARACCEL:
-    /* 1m/s^2 = 100 LSB */
-    xyz[0] = ((double)x) / 100.0;
-    xyz[1] = ((double)y) / 100.0;
-    xyz[2] = ((double)z) / 100.0;
-    break;
-  case VECTOR_GRAVITY:
-    /* 1m/s^2 = 100 LSB */
-    xyz[0] = ((double)x) / 100.0;
-    xyz[1] = ((double)y) / 100.0;
-    xyz[2] = ((double)z) / 100.0;
-    break;
+  // case VECTOR_LINEARACCEL:
+  //   /* 1m/s^2 = 100 LSB */
+  //   xyz[0] = ((double)x) / 100.0;
+  //   xyz[1] = ((double)y) / 100.0;
+  //   xyz[2] = ((double)z) / 100.0;
+  //   break;
+  // case VECTOR_GRAVITY:
+  //   /* 1m/s^2 = 100 LSB */
+  //   xyz[0] = ((double)x) / 100.0;
+  //   xyz[1] = ((double)y) / 100.0;
+  //   xyz[2] = ((double)z) / 100.0;
+  //   break;
   }
 
   return xyz;
@@ -552,56 +572,59 @@ bool Adafruit_BNO055::getEvent(sensors_event_t *event,
   /* Clear the event */
   memset(event, 0, sizeof(sensors_event_t));
 
-  event->version = sizeof(sensors_event_t);
-  event->sensor_id = _sensorID;
-  event->timestamp = millis();
+  // event->version = sizeof(sensors_event_t);
+  // event->sensor_id = _sensorID;
+  // event->timestamp = millis();
 
   // read the data according to vec_type
   imu::Vector<3> vec;
-  if (vec_type == Adafruit_BNO055::VECTOR_LINEARACCEL) {
-    event->type = SENSOR_TYPE_LINEAR_ACCELERATION;
-    vec = getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  // if (vec_type == Adafruit_BNO055::VECTOR_LINEARACCEL) {
+  //   event->type = SENSOR_TYPE_LINEAR_ACCELERATION;
+  //   vec = getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
 
-    event->acceleration.x = vec.x();
-    event->acceleration.y = vec.y();
-    event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_ACCELEROMETER) {
+  //   event->acceleration.x = vec.x();
+  //   event->acceleration.y = vec.y();
+  //   event->acceleration.z = vec.z();
+  // } else 
+  if (vec_type == Adafruit_BNO055::VECTOR_ACCELEROMETER) {
     event->type = SENSOR_TYPE_ACCELEROMETER;
     vec = getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
 
     event->acceleration.x = vec.x();
     event->acceleration.y = vec.y();
     event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_GRAVITY) {
-    event->type = SENSOR_TYPE_GRAVITY;
-    vec = getVector(Adafruit_BNO055::VECTOR_GRAVITY);
+  } 
+  // else if (vec_type == Adafruit_BNO055::VECTOR_GRAVITY) {
+  //   event->type = SENSOR_TYPE_GRAVITY;
+  //   vec = getVector(Adafruit_BNO055::VECTOR_GRAVITY);
 
-    event->acceleration.x = vec.x();
-    event->acceleration.y = vec.y();
-    event->acceleration.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_EULER) {
-    event->type = SENSOR_TYPE_ORIENTATION;
-    vec = getVector(Adafruit_BNO055::VECTOR_EULER);
+  //   event->acceleration.x = vec.x();
+  //   event->acceleration.y = vec.y();
+  //   event->acceleration.z = vec.z();
+  // } else if (vec_type == Adafruit_BNO055::VECTOR_EULER) {
+  //   event->type = SENSOR_TYPE_ORIENTATION;
+  //   vec = getVector(Adafruit_BNO055::VECTOR_EULER);
 
-    event->orientation.x = vec.x();
-    event->orientation.y = vec.y();
-    event->orientation.z = vec.z();
-  } else if (vec_type == Adafruit_BNO055::VECTOR_GYROSCOPE) {
+  //   event->orientation.x = vec.x();
+  //   event->orientation.y = vec.y();
+  //   event->orientation.z = vec.z();
+  // } else
+   else if (vec_type == Adafruit_BNO055::VECTOR_GYROSCOPE) {
     event->type = SENSOR_TYPE_GYROSCOPE;
     vec = getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
     event->gyro.x = vec.x() * SENSORS_DPS_TO_RADS;
     event->gyro.y = vec.y() * SENSORS_DPS_TO_RADS;
     event->gyro.z = vec.z() * SENSORS_DPS_TO_RADS;
-  } else if (vec_type == Adafruit_BNO055::VECTOR_MAGNETOMETER) {
-    event->type = SENSOR_TYPE_MAGNETIC_FIELD;
-    vec = getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
+  } 
+  // else if (vec_type == Adafruit_BNO055::VECTOR_MAGNETOMETER) {
+  //   event->type = SENSOR_TYPE_MAGNETIC_FIELD;
+  //   vec = getVector(Adafruit_BNO055::VECTOR_MAGNETOMETER);
 
-    event->magnetic.x = vec.x();
-    event->magnetic.y = vec.y();
-    event->magnetic.z = vec.z();
-  }
-
+  //   event->magnetic.x = vec.x();
+  //   event->magnetic.y = vec.y();
+  //   event->magnetic.z = vec.z();
+  // }
   return true;
 }
 
@@ -870,4 +893,36 @@ bool Adafruit_BNO055::readLen(adafruit_bno055_reg_t reg, byte *buffer,
                               uint8_t len) {
   uint8_t reg_buf[1] = {(uint8_t)reg};
   return i2c_dev->write_then_read(reg_buf, 1, buffer, len);
+}
+
+void Adafruit_BNO055::enableInterrupts()
+{
+  adafruit_bno055_opmode_t modeback = _mode; //save current mode to change back to
+  setMode(OPERATION_MODE_CONFIG); // switch to configuration mode to change registers
+
+  // write8(BNO055_PAGE_ID_ADDR, 0x00); //switch to page 0
+  // delay(30);
+
+  // write8(BNO055_SYS_TRIGGER_ADDR, 0x20); //SYS_TRIGGER
+  // delay(30);                            // set to enable interrupts
+
+  write8(BNO055_PAGE_ID_ADDR, 0x01);  // switch to page 1
+  delay(30);
+
+  write8(BNO055_MAG_DATA_X_MSB_ADDR,0x20); //INT_MSK
+  delay(30);                              // set so int pin changes on HG
+
+  write8(BNO055_MAG_DATA_Y_LSB_ADDR,0x20); //INT_EN
+  delay(30);                              // enables HG interrupt
+
+  write8(BNO055_MAG_DATA_Z_LSB_ADDR,0xE0); //ACC_INT_SETTINGS
+  delay(30);                               // set to fire interrupt for x,y or z axis (could be changed to just z)
+
+  write8(BNO055_MAG_DATA_Z_MSB_ADDR, 0x00); //ACC_HG_DURATION
+  delay(30);                                // set for 2 ms
+
+  write8(BNO055_GYRO_DATA_X_LSB_ADDR, 0x01); //ACC_HG_THRES
+  delay(30);                                // set for ~0.3 m/s^2
+
+  setMode(modeback);
 }
