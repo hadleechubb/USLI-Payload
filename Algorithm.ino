@@ -25,7 +25,7 @@ bool transmit = false;
 int timestamptracker = 0;
 int TimeStamps[1000]; // check if needs to be higher
 float frequency;
-byte headercount = 1; //should start at 1 for "Acceleration/Gyroscope" header, increment by 1 for every "No BNO055 detected" written
+byte headercount = 3; //should start at 1 for "Acceleration/Gyroscope" header, increment by 1 for every "No BNO055 detected" written
 
 // Function Variables:
 int xAcc[1001]; //Initializing acceleration arrays
@@ -64,6 +64,7 @@ int yLoc;
 int xOff;
 int yOff;
 byte cellID;
+int fileposition;
 
 void setup()
 {
@@ -125,13 +126,16 @@ void loop()
       {
         myFile.fgets(line,sizeof(line));
       }
-      // may need to save position @kendra
+      fileposition = myFile.position();
+      Serial.print("position: ");
+      Serial.println(fileposition);
       myFile.close();
       finalLoc(loops, 0, 0, 0, 0, 0, 0, 0, 0, 0);         
       xLoc = floor(((finCoords[0])+xOff)/250); //Finds the upper right-hand node of the cell that contains the location of the rocket
       yLoc = ceil((finCoords[1]+yOff)/250);
       
       cellID = 211 + xLoc - 20*yLoc; //Traces from origin to determine the cell number. Can be calculated.
+      Serial.print("cellID: ");
       Serial.println(cellID); 
       transmit = true;    
     }
@@ -145,6 +149,7 @@ void finalLoc(int loops, int xVel0, int yVel0, int zVel0, int xDist0, int yDist0
 {
   //@kendra calculate position from loops
   myFile.open("AlgorithmTest.csv", O_RDWR); //add position
+  myFile.seek(fileposition);
   myFile.fgets(line,sizeof(line));
   TimeStamps[timestamptracker] = atoi(line);
   timestamptracker++;
@@ -167,17 +172,22 @@ void finalLoc(int loops, int xVel0, int yVel0, int zVel0, int xDist0, int yDist0
     xOme[i] = atoi(line);
     // Gyro Z
     myFile.fgets(line, sizeof(line));
-    xOme[i] = atoi(line);
+    xOme[i] = -atoi(line);
   }
   // get ending time stamp
   myFile.fgets(line,sizeof(line));
   TimeStamps[timestamptracker] = atoi(line);
   timestamptracker++;
 
+  fileposition = myFile.position();
+  Serial.print("position: ");
+  Serial.println(fileposition);
   myFile.close(); 
   loops--;
 
-  frequency = 1000/(TimeStamps[timestamptracker]-TimeStamps[timestamptracker-1]);  
+  frequency = 6000/(TimeStamps[timestamptracker]-TimeStamps[timestamptracker-1]);  //@kendra check this
+  Serial.print("frequency: ");
+  Serial.println(frequency);
 
   xVel[0] = xVel0;
   yVel[0] = yVel0;
