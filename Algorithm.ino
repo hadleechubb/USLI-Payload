@@ -2,14 +2,12 @@
 #include "SdFat.h"
 #include "sdios.h"
 
-
 #define SPI_SPEED SD_SCK_MHZ[50]12
 
 // IMU Libraries:
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-using namespace BLA;
 
 Adafruit_BNO055 bno = Adafruit_BNO055(01, 0x28);
 imu::Vector<3> accldata, gyrodata;
@@ -30,13 +28,13 @@ float frequency;
 byte headercount = 1; //should start at 1 for "Acceleration/Gyroscope" header, increment by 1 for every "No BNO055 detected" written
 
 // Function Variables:
-int xAcc[1000]; //Initializing acceleration arrays
-int yAcc[1000];
-int zAcc[1000];
+int xAcc[1001]; //Initializing acceleration arrays
+int yAcc[1001];
+int zAcc[1001];
 
-int xAcca[1000]; //Initializing absolute acceleration arrays
-int yAcca[1000];
-int zAcca[1000];
+int xAcca[1001]; //Initializing absolute acceleration arrays
+int yAcca[1001];
+int zAcca[1001];
 
 float acca1[3][3];
 float acca2[3][3];
@@ -44,28 +42,27 @@ float acca3[3][3];
 int acc[3];
 float acca[3][3];
 
-int xOme[1000];
-int yOme[1000];
-int zOme[1000];
-float curtime[1000]; 
+int xOme[1001];
+int yOme[1001];
+int zOme[1001];
 
-int xVel[1000]; //Initializing velocity arrays
-int yVel[1000];
-int zVel[1000];
+int xVel[1001]; //Initializing velocity arrays
+int yVel[1001];
+int zVel[1001];
 
-int xDist[1000]; //Initializing position arrays
-int yDist[1000];
-int zDist[1000];
+int xDist[1001]; //Initializing position arrays
+int yDist[1001];
+int zDist[1001];
 
-int xThe[1000]; //Initializing angle arrays
-int yThe[1000];
-int zThe[1000];
-
-float apogee;
+int xThe[1001]; //Initializing angle arrays
+int yThe[1001];
+int zThe[1001];
 
 int finCoords[3];
 int xLoc;
 int yLoc;
+int xOff;
+int yOff;
 byte cellID;
 
 void setup()
@@ -94,7 +91,7 @@ void setup()
     delay(100);
   }
   landed = true;
-  curtime[0] = 0;
+  //set xOff and yOff
 }
 
 void loop()
@@ -123,49 +120,20 @@ void loop()
   {
     if(transmit == false)
     {
-      if(loops != 0)
+      myFile.open("AlgorithmTest.csv", O_RDWR);
+      for(int j = 0; j < headercount; j++)
       {
-        myFile.open("AlgorithmTest.csv", O_RDWR);
-        for(int j = 0; j < headercount; j++)
-        {
-          myFile.fgets(line,sizeof(line));
-        }
-        // need a way to keep track of where last data was taken from file
-        // get beginning time stamp
         myFile.fgets(line,sizeof(line));
-        TimeStamps[timestamptracker] = atoi(line);
-        timestamptracker++;
-        for(int i = 0; i<1000; i++)
-        {
-          // Accl X
-          myFile.fgets(line, sizeof(line));
-          xAcc[i] = atoi(line);
-          // Accl Y
-          myFile.fgets(line, sizeof(line));
-          yAcc[i] = atoi(line);
-          // Accl Z
-          myFile.fgets(line, sizeof(line));
-          zAcc[i] = -atoi(line);
-          // Gyro X
-          myFile.fgets(line, sizeof(line));
-          xOme[i] = atoi(line);
-          // Gyro Y
-          myFile.fgets(line, sizeof(line));
-          xOme[i] = atoi(line);
-          // Gyro Z
-          myFile.fgets(line, sizeof(line));
-          xOme[i] = atoi(line);
-        }
-        // get ending time stamp
-        myFile.fgets(line,sizeof(line));
-        TimeStamps[timestamptracker] = atoi(line);
-        timestamptracker++;
-        
-        myFile.close();
-        frequency = 1000/(TimeStamps[timestamptracker]-TimeStamps[timestamptracker-1]);
-        
-        finalLoc(frequency, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
       }
+      // may need to save position @kendra
+      myFile.close();
+      finalLoc(loops, 0, 0, 0, 0, 0, 0, 0, 0, 0);         
+      xLoc = floor(((finCoords[0])+xOff)/250); //Finds the upper right-hand node of the cell that contains the location of the rocket
+      yLoc = ceil((finCoords[1]+yOff)/250);
+      
+      cellID = 211 + xLoc - 20*yLoc; //Traces from origin to determine the cell number. Can be calculated.
+      Serial.println(cellID); 
+      transmit = true;    
     }
   }
 }
@@ -173,8 +141,44 @@ void loop()
 
 
 // location calculation function
-int finalLoc(float frequency, float xVel0, float yVel0, float zVel0, float xDist0, float yDist0, float zDist0, float xThe0, float yThe0, float zThe0, float xOff, float yOff)
-{    
+void finalLoc(int loops, int xVel0, int yVel0, int zVel0, int xDist0, int yDist0, int zDist0, int xThe0, int yThe0, int zThe0)
+{
+  //@kendra calculate position from loops
+  myFile.open("AlgorithmTest.csv", O_RDWR); //add position
+  myFile.fgets(line,sizeof(line));
+  TimeStamps[timestamptracker] = atoi(line);
+  timestamptracker++;
+  for(int i = 1; i<1001; i++)
+  {
+    // Accl X
+    myFile.fgets(line, sizeof(line));
+    xAcc[i] = atoi(line);
+    // Accl Y
+    myFile.fgets(line, sizeof(line));
+    yAcc[i] = atoi(line);
+    // Accl Z
+    myFile.fgets(line, sizeof(line));
+    zAcc[i] = -atoi(line);
+    // Gyro X
+    myFile.fgets(line, sizeof(line));
+    xOme[i] = atoi(line);
+    // Gyro Y
+    myFile.fgets(line, sizeof(line));
+    xOme[i] = atoi(line);
+    // Gyro Z
+    myFile.fgets(line, sizeof(line));
+    xOme[i] = atoi(line);
+  }
+  // get ending time stamp
+  myFile.fgets(line,sizeof(line));
+  TimeStamps[timestamptracker] = atoi(line);
+  timestamptracker++;
+
+  myFile.close(); 
+  loops--;
+
+  frequency = 1000/(TimeStamps[timestamptracker]-TimeStamps[timestamptracker-1]);  
+
   xVel[0] = xVel0;
   yVel[0] = yVel0;
   zVel[0] = zVel0;
@@ -189,59 +193,43 @@ int finalLoc(float frequency, float xVel0, float yVel0, float zVel0, float xDist
   
   int t = 1/frequency;  //Finds time step process
   
-  for(int i = 0; i < 1000; i++)
-  {
-    curtime[i] = curtime[i-1] + t;
-  }  
-  
-  for(int i = 1; i < (sizeof(xOme)-2); i++)
+  for(int i = 1; i < 1001; i++) //0th element of array already set as initial
   { //Calculates angle for absolute acceleration
-    xThe[i+1] = xThe[i] + 0.5*t*(xOme[i] + xOme[i+1]);
-    yThe[i+1] = yThe[i] + 0.5*t*(yOme[i] + yOme[i+1]);
-    zThe[i+1] = zThe[i] + 0.5*t*(zOme[i] + zOme[i+1]);
+    xThe[i] = xThe[i-1] + 0.5*t*(xOme[i-1] + xOme[i]);
+    yThe[i] = yThe[i-1] + 0.5*t*(yOme[i-1] + yOme[i]);
+    zThe[i] = zThe[i-1] + 0.5*t*(zOme[i-1] + zOme[i]);
   }   
   
-  for(int i = 1; i < (sizeof(xAcc)-1); i++)
+  for(int i = 0; i < 1001; i++)
   { //Calculates absolute acceleration at each time point
-    xAcca[i] = cos(yThe[i]*PI/180)*cos(zThe[i]*PI/180)*xAcc[i] + cos(yThe[i]*PI/180)*sin(zThe[i]*PI/180)*yAcc[i] + (-sin(yThe[i]*PI/180)*zAcc[i]);
+    xAcca[i] = cos(yThe[i])*cos(zThe[i]*PI/180)*xAcc[i] + cos(yThe[i]*PI/180)*sin(zThe[i]*PI/180)*yAcc[i] + (-sin(yThe[i]*PI/180)*zAcc[i]);
     yAcca[i] = ((-cos(xThe[i]*PI/180))*sin(zThe[i]*PI/180)+sin(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*cos(zThe[i]*PI/180))*xAcc[i] + (cos(xThe[i]*PI/180)*cos(zThe[i]*PI/180)+sin(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*sin(zThe[i]*PI/180))*yAcc[i] + sin(xThe[i]*PI/180)*cos(yThe[i]*PI/180)*zAcc[i];
+    // technically don't need to save or calculate z
     zAcca[i] = (sin(xThe[i]*PI/180)*sin(zThe[i]*PI/180)+cos(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*cos(zThe[i]*PI/180))*xAcc[i] + ((-sin(xThe[i]*PI/180))*sin(zThe[i]*PI/180)+cos(xThe[i]*PI/180)*sin(yThe[i]*PI/180)*sin(zThe[i]*PI/180))*yAcc[i] + cos(xThe[i]*PI/180)*cos(yThe[i]*PI/180)*zAcc[i];
     zAcca[i] = zAcca[i] + 9.81;
   }  
   
-  for(int i = 1; i < (sizeof(xAcca)-2); i++)
+  for(int i = 1; i < 1001; i++) //0th element of array already set
   { //Calculates velocity at each time point
-    xVel[i+1] = xVel[i] + 0.5*t*(xAcca[i] + xAcca[i+1]);
-    yVel[i+1] = yVel[i] + 0.5*t*(yAcca[i] + yAcca[i+1]);
-    zVel[i+1] = zVel[i] + 0.5*t*(zAcca[i] + zAcca[i+1]);
+    xVel[i] = xVel[i-1] + 0.5*t*(xAcca[i-1] + xAcca[i]);
+    yVel[i] = yVel[i-1] + 0.5*t*(yAcca[i-1] + yAcca[i]);
+    zVel[i] = zVel[i-1] + 0.5*t*(zAcca[i-1] + zAcca[i]);
   }
   
-  for(int i = 1; i < (sizeof(xVel)-2); i++)
+  for(int i = 1; i < 1001; i++) //0th element of array already set
   { //calculates distance, angle at each time point
-    xDist[i+1] = xDist[i] + 0.5*t*(xVel[i] + xVel[i+1]);
-    yDist[i+1] = yDist[i] + 0.5*t*(yVel[i] + yVel[i+1]);
-    zDist[i+1] = zDist[i] + 0.5*t*(zVel[i] + zVel[i+1]);
+    xDist[i] = xDist[i-1] + 0.5*t*(xVel[i-1] + xVel[i]);
+    yDist[i] = yDist[i-1] + 0.5*t*(yVel[i-1] + yVel[i]);
+    zDist[i] = zDist[i-1] + 0.5*t*(zVel[i-1] + zVel[i]);
   }
-  
-  apogee = 0;
-  for(int i = 0; i < (sizeof(zDist) - 1); i++)
+  if(loops!= 0)
   {
-    if(apogee < zDist[i])
-    {
-      apogee = zDist[i];
-    }
+    finalLoc(loops, xVel[999], yVel[999], zVel[999], xDist[999], yDist[999], zDist[999], xThe[999], yThe[999], zThe[999]);
   }
-  
-  finCoords[0] = (xDist[sizeof(xDist)-1])*3.28084;
-  finCoords[1] = (yDist[sizeof(yDist)-1])*3.28084;
-  finCoords[2] = (zDist[sizeof(zDist)-1])*3.28084;
-  //xOff = -250; //x and y offset of launchpad from gridded image origin. Enter the x and y components of the distance offset.
-  //yOff = 250;
-  
-  xLoc = floor(((finCoords[1])+xOff)/250); //Finds the upper right-hand node of the cell that contains the location of the rocket
-  yLoc = ceil((finCoords[1]+yOff)/250);
-  
-  cellID = 211 + xLoc - 20*yLoc; //Traces from origin to determine the cell number. Can be calculated.
-  Serial.println(cellID);
-  return cellID;
+  else
+  {
+    finCoords[0] = (xDist[999])*3.28084;
+    finCoords[1] = (yDist[999])*3.28084;
+    // finCoords[2] = (zDist[999])*3.28084;
+  }
 }
