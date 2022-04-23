@@ -3,6 +3,8 @@
 #include "sdios.h"
 
 #define SPI_SPEED SD_SCK_MHZ[50]12
+#define GREEN_LED 4
+#define BLUE_LED 5
 
 // IMU Libraries:
 #include <Adafruit_Sensor.h>
@@ -19,7 +21,7 @@ SdFile myFile;
 const int chipSelect = 10;
 bool detectError;
 bool landed;
-int loops = 338; //403;
+int loops = 0;
 char line[30];
 bool transmit = false;
 int timestamptracker = 0;
@@ -66,6 +68,10 @@ byte cellID;
 int fileposition;
 float t;
 
+float xyforces;
+int fcount;
+int begintime;
+
 void setup()
 {
   // Open serial communications and wait for port to open:
@@ -75,26 +81,36 @@ void setup()
   sd.begin(chipSelect, SPI_HALF_SPEED);
   Serial.println("initialization done.");
 
-  myFile.open("FullScale.csv", O_RDWR | O_CREAT | O_AT_END);
+  myFile.open("CompetitonLaunch.csv", O_RDWR | O_CREAT | O_AT_END);
   myFile.println("Acceleration/Gyroscope");
   myFile.close();
+
+    // set up LEDs
+  pinMode(GREEN_LED,OUTPUT);
+  digitalWrite(GREEN_LED, LOW);
+
+  pinMode(BLUE_LED,OUTPUT);
+  digitalWrite(BLUE_LED, LOW);
+  
   Serial.print("Initializing IMU...");
   detectError = bno.begin();
   delay(100);
   while(detectError == 0)
   {
+    digitalWrite(GREEN_LED,LOW);
     detectError = bno.begin();
     /* There was a problem detecting the BNO055 ... check your connections */
     Serial.print("No BNO055 detected");
-    myFile.open("FullScale.csv", O_RDWR | O_AT_END);
+    myFile.open("CompetitonLaunch.csv", O_RDWR | O_AT_END);
     myFile.println("No BNO055 detected");
     myFile.close();
     delay(100);
     Serial.print(".");
   }
+  digitalWrite(GREEN_LED,HIGH);
   Serial.println(" IMU initialization complete.");
-  landed = true;
-  //set xOff and yOff
+  landed = false;
+  begintime = millis();
 }
 
 void loop()
@@ -102,7 +118,7 @@ void loop()
   if(landed == false)
   {
     Serial.println("Taking Data");
-    myFile.open("FullScale.csv", O_RDWR | O_AT_END);
+    myFile.open("CompetitonLaunch.csv", O_RDWR | O_AT_END);
     myFile.println(millis());
     for(int x = 0; x < 1000; x++)
     {
@@ -114,10 +130,20 @@ void loop()
       myFile.println(gyrodata.x());
       myFile.println(gyrodata.y());
       myFile.println(gyrodata.z());
+      xyforces = sqrt(sq(accldata.x())+sq(accldata.y()));
+      if(xyforces > 8.5 && xyforces < 10.5)
+        fcount++;
+      else
+        fcount = 0;
     }
     myFile.println(millis());
     myFile.close();
     loops++;
+    Serial.println(fcount);
+    if(fcount > 15000)
+      landed = true;
+    if(millis()-begintime > 5400000)
+      landed = true;
   }
 
   if(landed == true)
@@ -125,14 +151,14 @@ void loop()
     if(transmit == false)
     {
       Serial.print("Calculating...");
-//      myFile.open("Launch2.csv", O_READ);
-//      myFile.fgets(line,sizeof(line));
-//      while((line[0] == 'A') || (line[0] == 'N'))
-//      {
-//        myFile.fgets(line,sizeof(line));
-//      }
-//      fileposition = myFile.position()-(sizeof(atoi(line))+2);
-//      myFile.close();
+      myFile.open("CompetitonLaunch.csv", O_READ);
+      myFile.fgets(line,sizeof(line));
+      while((line[0] == 'A') || (line[0] == 'N'))
+      {
+        myFile.fgets(line,sizeof(line));
+      }
+      fileposition = myFile.position()-(sizeof(atoi(line))+2);
+      myFile.close();
       finalLoc(loops, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);         
       xLoc = floor(((finCoords[0])+xOff)/250); //Finds the upper right-hand node of the cell that contains the location of the rocket
       yLoc = ceil((finCoords[1]+yOff)/250);
@@ -140,7 +166,16 @@ void loop()
       cellID = 211 + xLoc - 20*yLoc; //Traces from origin to determine the cell number. Can be calculated.
       Serial.print("cellID: ");
       Serial.println(cellID); 
+      myFile.open("CompetitonLaunch.csv",O_READ);
+      myFile.println("finCoords:");
+      myFile.println(finCoords[0]);
+      myFile.println(finCoords[1]);
+      myFile.println(finCoords[2]);
+      myFile.println("cell ID:");
+      myFile.println(cellID);
+      myFile.close();
       transmit = true;
+      digitalWrite(BLUE_LED, HIGH);
     }
   }
 }
@@ -148,54 +183,62 @@ void loop()
 
 
 // location calculation function
-void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, float yDist0, float zDist0, float xThe0, float yThe0, float zThe0, float xAcca0, float yAcca0, float zAcca0, float xOme0, float yOme0, float xOme0)
+void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, float yDist0, float zDist0, float xThe0, float yThe0, float zThe0, float xAcca0, float yAcca0, float zAcca0, float xOme0, float yOme0, float zOme0)
 {
-  loops = 1;
-//  Serial.print(".");
-  myFile.open("MathTest2.csv", O_RDWR); //add position
-//  myFile.seek(fileposition);
+  myFile.open("CompetitonLaunch.csv", O_RDWR); //add position
+  myFile.seek(fileposition);
   myFile.fgets(line,sizeof(line));
-//  while((line[0] == 'A') || (line[0] == 'N'))
-//  {
-//    myFile.fgets(line,sizeof(line));
-//  }
+  while((line[0] == 'A') || (line[0] == 'N'))
+  {
+    myFile.fgets(line,sizeof(line));
+  }
   TimeStamps[timestamptracker] = atoi(line);
   timestamptracker++;
 //  Serial.println(TimeStamps[0]);
-  for(int i = 1; i < 10; i++)
+  for(int i = 1; i < 1001; i++)
   {
     // Accl X
     myFile.fgets(line, sizeof(line));
     xAcc[i] = atof(line);
+//    Serial.print("xAcc: ");
+//    Serial.println(xAcc[i]);
     // Accl Y
     myFile.fgets(line, sizeof(line));
-    yAcc[i] = atof(line);
+    yAcc[i] = atof(line)-1.56;
+//    Serial.print("yAcc: ");
+//    Serial.println(yAcc[i]);
     // Accl Z
     myFile.fgets(line, sizeof(line));
-    zAcc[i] = atof(line);
+    zAcc[i] = -atof(line)-0.4;
+//    Serial.print("zAcc: ");
+//    Serial.println(zAcc[i]);
     // Gyro X
     myFile.fgets(line, sizeof(line));
-    xOme[i] = atof(line);
+    xOme[i] = -atof(line);
+//    Serial.print("xOme: ");
 //    Serial.println(xOme[i]);
     // Gyro Y
     myFile.fgets(line, sizeof(line));
-    yOme[i] = atof(line);
+    yOme[i] = -atof(line);
+//    Serial.print("yOme: ");
 //    Serial.println(yOme[i]);
     // Gyro Z
     myFile.fgets(line, sizeof(line));
     zOme[i] = atof(line);
+//    Serial.print("zOme: ");
+//    Serial.println(zOme[i]);
   }
   // get ending time stamp
-//  myFile.fgets(line,sizeof(line));
-//  TimeStamps[timestamptracker] = atoi(line);
-//  timestamptracker++;
+  myFile.fgets(line,sizeof(line));
+  TimeStamps[timestamptracker] = atoi(line);
+  timestamptracker++;
   fileposition = myFile.position();
   myFile.close(); 
   loops--;
 
   frequency = (TimeStamps[timestamptracker-1]-TimeStamps[timestamptracker-2]);
   frequency = frequency/1000;
-  frequency = 1;//1000/frequency;
+  frequency = 1000/frequency;
   
   xVel[0] = xVel0;
   yVel[0] = yVel0;
@@ -218,15 +261,14 @@ void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, fl
   zAcca[0] = zAcca0;
 
   t = 1.00/frequency;  //Finds time step process
-  Serial.print("t: ");
-  Serial.println(t);
   
-  for(int i = 1; i < 10; i++) //0th element of array already set as initial
+  for(int i = 1; i < 1001; i++) //0th element of array already set as initial
   { //Calculates angle for absolute acceleration
     xThe[i] = xThe[i-1] + 0.5*t*(xOme[i-1] + xOme[i]);
 //    Serial.print("xThe: ");
 //    Serial.println(xThe[i]);
     yThe[i] = yThe[i-1] + 0.5*t*(yOme[i-1] + yOme[i]);
+//    Serial.print("yThe: ");
 //    Serial.println(yThe[i]);
     zThe[i] = zThe[i-1] + 0.5*t*(zOme[i-1] + zOme[i]);
 //    Serial.print("zThe: ");
@@ -236,7 +278,7 @@ void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, fl
 //  Serial.println(xAcca[0]);
 
 
-  for(int i = 1; i < 10; i++)
+  for(int i = 1; i < 1001; i++)
   { //Calculates absolute acceleration at each time point
     xAcca[i] = cos(yThe[i]*PI/180)*cos(zThe[i]*PI/180)*xAcc[i] + cos(yThe[i]*PI/180)*sin(zThe[i]*PI/180)*yAcc[i] + (-sin(yThe[i]*PI/180)*zAcc[i]);
 //    Serial.print("Absolute X Acc:");
@@ -251,14 +293,14 @@ void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, fl
 //    Serial.println(zAcca[i]);
   }  
   
-  for(int i = 1; i < 10; i++) //0th element of array already set
+  for(int i = 1; i < 1001; i++) //0th element of array already set
   { //Calculates velocity at each time point
     xVel[i] = xVel[i-1] + 0.5*t*(xAcca[i-1] + xAcca[i]);
     yVel[i] = yVel[i-1] + 0.5*t*(yAcca[i-1] + yAcca[i]);
     zVel[i] = zVel[i-1] + 0.5*t*(zAcca[i-1] + zAcca[i]);
   }
   
-  for(int i = 1; i < 10; i++) //0th element of array already set
+  for(int i = 1; i < 1001; i++) //0th element of array already set
   { //calculates distance, angle at each time point
     xDist[i] = xDist[i-1] + 0.5*t*(xVel[i-1] + xVel[i]);
     yDist[i] = yDist[i-1] + 0.5*t*(yVel[i-1] + yVel[i]);
@@ -276,6 +318,5 @@ void finalLoc(int loops, float xVel0, float yVel0, float zVel0, float xDist0, fl
     Serial.println(finCoords[1]);
     finCoords[2] = (zDist[1000])*3.28084;
     Serial.println(finCoords[2]);
-    // finCoords[2] = (zDist[999])*3.28084;
   }
 }
